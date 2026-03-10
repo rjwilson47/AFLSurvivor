@@ -25,7 +25,7 @@ Admin (Mike) enters results, posts commentary, and manages the competition. The 
 - **Public pages require no login:** Leaderboard (`/`), Rules (`/rules`), Round Summary (`/rounds/[id]`).
 - Every page must have a persistent **"Back to Homepage"** link in the header/nav.
 - Domain: `aflsurvivor.com`
-- Timezone for deadlines: **AEST** (Thursday midday).
+- Timezone for deadlines: **Australia/Melbourne** (Thursday midday — auto-adjusts for AEST/AEDT).
 - Footer on leaderboard includes sponsor links (magicmikenotastripper.com.au, oldmates.com) — open in new tab.
 - Rules page renders `game-rules.md` from the repo.
 
@@ -45,8 +45,8 @@ Multiple users can hold any role. There is a **viewer** level (no login) for pub
 
 - **`teams`** — 18 AFL teams (static, seeded). Columns: `id`, `name`, `short_name`, `abbreviation`.
 - **`seasons`** — Year, `is_active` (only one), `entry_cost`, `extra_life_cost`.
-- **`participants`** — Linked to Supabase auth user. Key fields: `season_id`, `display_name`, `lives_total`, `lives_remaining`, `idol_count`, `is_eliminated`, `role`.
-- **`rounds`** — `round_number` (1–24), `deadline`, `is_locked`, `results_entered`, `Mikes_corner`, `Mikes_corner_posted_at`.
+- **`participants`** — Has `user_id` FK to `auth.users.id` (separate from `id` PK, enabling multi-season support). Key fields: `user_id`, `season_id`, `display_name`, `lives_total`, `lives_remaining`, `idol_count`, `is_eliminated`, `role`.
+- **`rounds`** — `round_number` (1–24), `deadline`, `is_locked`, `results_entered`, `mikes_corner`, `mikes_corner_posted_at`.
 - **`matches`** — Links to round + two teams. `result` enum: `home_win`/`away_win`/`draw`/`pending`. Has `is_final_match` flag (used for default main assignment).
 - **`tips`** — One per participant per match per round. Stores `tipped_loser_team_id`. Private — not visible to other participants.
 - **`main_tips`** — One per participant per round. Stores the publicly declared main tip. Includes `idol_played`, `idol_played_at`, `was_default_assigned`.
@@ -54,13 +54,16 @@ Multiple users can hold any role. There is a **viewer** level (no login) for pub
 
 ### Key Relationships
 
+- `participants.user_id` → `auth.users.id`; unique constraint on `(user_id, season_id)`
 - `tips.match_id` → `matches.id`; `tips.participant_id` → `participants.id`
-- `main_tips.tipped_loser_team_id` must match a tip already in the `tips` table for that round
+- `main_tips.tipped_loser_team_id` must match a tip already in the `tips` table for that round (enforced in application code)
 - `main_tip_team_usage` enforces the 18-team/24-round constraint
 
 ## RLS (Row-Level Security) Approach
 
-Policies check `participants.role` for the authenticated user on every protected query.
+A `get_user_role()` Postgres function caches the current user's role lookup. All RLS policies call this function instead of each doing their own subquery. For the `participants` table itself, policies use `auth.uid() = user_id` directly (avoids circular dependency).
+
+A `participants_public` view excludes `role` and `idol_count` columns — participant-facing queries use this view to enforce column-level privacy.
 
 | Table | participant | admin | superadmin |
 |-------|-------------|-------|------------|
@@ -68,7 +71,7 @@ Policies check `participants.role` for the authenticated user on every protected
 | `main_tips` | All rows (read), own rows (write before deadline) | All rows (read) | Full CRUD |
 | `matches` | Read only | Full CRUD | Full CRUD |
 | `rounds` | Read only | Full CRUD | Full CRUD |
-| `participants` | Read (limited cols — **no role column**) | Read all, write limited | Full CRUD including role |
+| `participants` | Read via `participants_public` view (no role/idol_count) | Read all, write limited | Full CRUD including role |
 
 Role assignment (`UPDATE` on `participants.role`) restricted to `superadmin` only.
 
@@ -127,11 +130,16 @@ Role assignment (`UPDATE` on `participants.role`) restricted to `superadmin` onl
 
 1. **Tips are "loser" tips** — participants pick the team they think will **lose**, not win. Every label, form, and query must reflect this.
 2. **Idol privacy is critical** — never leak idol counts to other participants. RLS + frontend must both enforce this.
-3. **Deadline timezone** — all deadline logic must use AEST. Store as `timestamptz` in Postgres, handle conversion in app.
+3. **Deadline timezone** — all deadline logic uses `Australia/Melbourne` timezone (handles AEST/AEDT automatically). Store as `timestamptz` in Postgres, display in `Australia/Melbourne` in the app.
 4. **`is_final_match`** — exactly one match per round should have this set to `true`; used for default main assignment.
-5. **Draw handling** — draws cause life loss (same as incorrect main), unless idol played.
+5. **Draw handling** — draws make regular tips `is_correct = false` (no loser = tip wrong). Draws on main tip cause life loss, unless idol played.
 6. **Magic link auth** — no passwords, no OAuth. Supabase handles this natively.
 7. **Atomic operations** — third life grant and default tip assignment must be transactional.
-8. **Column naming** — spec uses `Mikes_corner` (capital M) on the rounds table.
+8. **Column naming** — use `mikes_corner` (lowercase) in the actual schema to avoid Postgres quoting issues.
 9. **Sponsor links** in leaderboard footer: `magicmikenotastripper.com.au` and `oldmates.com` — must open in new tab.
-10. **`participants.id`** links directly to Supabase auth user UUID — not a separate FK.
+10. **`participants.user_id`** links to `auth.users.id` as a separate FK. `participants.id` is its own UUID PK. This enables multi-season support (same user, multiple participant rows).
+11. **Scoring is per-match, not all-at-once.** When Mike sets a match result, related tips are scored immediately. Round-level calculations (idol earning, life loss, eliminations) fire only when all matches in the round have results. Result corrections trigger re-scoring.
+12. **Eliminated participants can still submit tips** for engagement. Tips are scored but lives cannot go below 0 and they cannot earn idols.
+13. **No self-registration enforcement** — Supabase Auth signup is disabled; superadmin uses the admin API (service role) to pre-create auth users.
+14. **Soft delete for participants** — use `is_active` flag rather than hard delete to avoid orphaning tips/usage records.
+15. **Bye rounds** — AFL bye rounds simply have fewer matches. The tip form shows whatever matches exist for the round; no special handling needed.
