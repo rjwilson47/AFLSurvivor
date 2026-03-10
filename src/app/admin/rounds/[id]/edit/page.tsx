@@ -138,6 +138,19 @@ export default function EditRoundPage({ params }: { params: Promise<{ id: string
     router.push('/admin')
   }
 
+  async function handleAssignDefaults() {
+    if (!confirm('Assign default tips for all participants who haven\'t submitted? This cannot be easily undone.')) return
+    setError('')
+    const res = await fetch(`/api/admin/rounds/${id}/defaults`, { method: 'POST' })
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error || 'Failed to assign defaults')
+    } else {
+      setError('')
+      alert('Defaults assigned successfully')
+    }
+  }
+
   async function handleLock() {
     const res = await fetch('/api/admin/rounds', {
       method: 'PUT',
@@ -171,16 +184,26 @@ export default function EditRoundPage({ params }: { params: Promise<{ id: string
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
           Edit Round {round.round_number}
         </h1>
-        <button
-          onClick={handleLock}
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${
-            round.is_locked
-              ? 'bg-green-600 text-white hover:bg-green-700'
-              : 'bg-yellow-600 text-white hover:bg-yellow-700'
-          }`}
-        >
-          {round.is_locked ? 'Unlock Round' : 'Lock Round'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleAssignDefaults}
+            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+          >
+            Assign Defaults
+          </button>
+          <button
+            type="button"
+            onClick={handleLock}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              round.is_locked
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-yellow-600 text-white hover:bg-yellow-700'
+            }`}
+          >
+            {round.is_locked ? 'Unlock Round' : 'Lock Round'}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
