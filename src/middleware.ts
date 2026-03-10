@@ -8,9 +8,17 @@ const protectedRoutes = ['/tips', '/me', '/admin']
 // Middleware only checks authentication; role checks happen in page components
 
 export async function middleware(request: NextRequest) {
-  const response = await updateSession(request)
+  const { pathname, searchParams } = request.nextUrl
 
-  const { pathname } = request.nextUrl
+  // Supabase redirects expired/invalid magic links to the site URL with error params.
+  // Catch these and redirect to /login with a user-friendly message.
+  if (searchParams.get('error_code') === 'otp_expired') {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('error', 'link_expired')
+    return NextResponse.redirect(loginUrl)
+  }
+
+  const response = await updateSession(request)
 
   // Check if this is a protected route
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route))

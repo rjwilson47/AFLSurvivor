@@ -1,9 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const urlError = searchParams.get('error')
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
@@ -40,6 +44,28 @@ export default function LoginPage() {
             Sign in with your email to continue
           </p>
         </div>
+
+        {urlError === 'link_expired' && status === 'idle' && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-amber-950">
+            <p className="font-medium text-amber-800 dark:text-amber-200">
+              Magic link expired
+            </p>
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+              That link has already been used or has expired. Enter your email below to get a new one.
+            </p>
+          </div>
+        )}
+
+        {urlError === 'auth_failed' && status === 'idle' && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-800 dark:bg-red-950">
+            <p className="font-medium text-red-800 dark:text-red-200">
+              Sign in failed
+            </p>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+              Something went wrong. Please try signing in again.
+            </p>
+          </div>
+        )}
 
         {status === 'sent' ? (
           <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center dark:border-green-800 dark:bg-green-950">
@@ -96,5 +122,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
