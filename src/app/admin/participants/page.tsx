@@ -13,6 +13,9 @@ export default function ManageParticipantsPage() {
   const [success, setSuccess] = useState('')
   const [adding, setAdding] = useState(false)
   const [round1Locked, setRound1Locked] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkImporting, setBulkImporting] = useState(false)
+  const [bulkResults, setBulkResults] = useState<{ email: string; displayName: string; status: string }[] | null>(null)
 
   async function loadData() {
     const supabase = createClient()
@@ -77,6 +80,48 @@ export default function ManageParticipantsPage() {
       loadData()
     }
     setAdding(false)
+  }
+
+  async function handleBulkImport() {
+    if (!season || !bulkText.trim()) return
+    setError('')
+    setSuccess('')
+    setBulkImporting(true)
+    setBulkResults(null)
+
+    // Parse CSV-like text: each line is "display_name, email" or "display_name, email, role, participating"
+    const lines = bulkText.trim().split('\n').filter((l) => l.trim())
+    const participants = lines.map((line) => {
+      const parts = line.split(',').map((s) => s.trim())
+      return {
+        display_name: parts[0] || '',
+        email: parts[1] || '',
+        role: (parts[2] || 'participant') as 'participant' | 'admin' | 'superadmin',
+        is_participating: parts[3] !== undefined ? parts[3].toLowerCase() !== 'false' && parts[3].toLowerCase() !== 'no' : true,
+      }
+    })
+
+    try {
+      const res = await fetch('/api/admin/participants/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participants, season_id: season.id }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error)
+      } else {
+        setBulkResults(data.results)
+        const created = data.results.filter((r: { status: string }) => r.status === 'created').length
+        setSuccess(`Bulk import complete: ${created} created`)
+        loadData()
+      }
+    } catch {
+      setError('Bulk import failed')
+    }
+
+    setBulkImporting(false)
   }
 
   async function handleAction(participantId: string, action: string) {
@@ -146,6 +191,50 @@ export default function ManageParticipantsPage() {
         </form>
       </div>
 
+      {/* Bulk Import */}
+      <div className="mb-8 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Bulk Import Participants
+        </h2>
+        <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+          One per line: <code>Display Name, email@example.com</code>
+          — optionally add role and participating: <code>Name, email, admin, false</code>
+        </p>
+        <textarea
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+          rows={8}
+          placeholder={`Magic Mike, michael.j.webb9@gmail.com\nRob, rjwilson47@gmail.com, superadmin\nMike Lee, lees@mikemarglee.com, admin, false`}
+          className="mb-2 block w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+        />
+        <button
+          onClick={handleBulkImport}
+          disabled={bulkImporting || !bulkText.trim()}
+          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+        >
+          {bulkImporting ? 'Importing...' : 'Import All'}
+        </button>
+
+        {bulkResults && (
+          <div className="mt-3 max-h-48 overflow-y-auto rounded border border-zinc-200 p-2 text-xs dark:border-zinc-700">
+            {bulkResults.map((r, i) => (
+              <div
+                key={i}
+                className={
+                  r.status === 'created'
+                    ? 'text-green-700 dark:text-green-300'
+                    : r.status.startsWith('error')
+                      ? 'text-red-700 dark:text-red-300'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                }
+              >
+                {r.displayName} ({r.email}): {r.status}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
           {error}
@@ -166,6 +255,7 @@ export default function ManageParticipantsPage() {
               <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Role</th>
               <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Lives</th>
               <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Idols</th>
+              <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Participating</th>
               <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Status</th>
               <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Actions</th>
             </tr>
@@ -186,6 +276,18 @@ export default function ManageParticipantsPage() {
                   {p.lives_remaining}/{p.lives_total}
                 </td>
                 <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{p.idol_count}</td>
+                <td className="px-3 py-2 text-center">
+                  <button
+                    onClick={() => handleAction(p.id, 'toggle_participating')}
+                    className={`rounded px-2 py-0.5 text-xs font-medium ${
+                      p.is_participating
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                    }`}
+                  >
+                    {p.is_participating ? 'Yes' : 'No'}
+                  </button>
+                </td>
                 <td className="px-3 py-2">
                   {!p.is_active ? (
                     <span className="text-zinc-400">Inactive</span>

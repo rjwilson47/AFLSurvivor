@@ -114,6 +114,29 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true })
   }
 
+  if (action === 'toggle_participating') {
+    const { data: participant } = await supabase
+      .from('participants')
+      .select('is_participating')
+      .eq('id', id)
+      .single()
+
+    if (!participant) {
+      return NextResponse.json({ error: 'Participant not found' }, { status: 404 })
+    }
+
+    const { error } = await supabase
+      .from('participants')
+      .update({ is_participating: !participant.is_participating })
+      .eq('id', id)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ success: true })
+  }
+
   // Whitelist allowed fields to prevent arbitrary updates
   const allowedFields: Record<string, string[]> = {
     admin: ['display_name'],
