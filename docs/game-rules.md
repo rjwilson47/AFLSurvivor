@@ -32,18 +32,10 @@ How to Log In
 
 No passwords. Just go to the site, enter your email, and click the link that arrives in your inbox. Done. Bookmark the leaderboard so you can check in during the week.
 
-President Mike's Executive Orders
+President Mike Lee's Executive Orders
 
 Executive Order #1 (17 April, 2025):
 In the case of tips not submitted: you can submit during the round via email and still hunt for an idol, assuming all the home teams have lost up until point of submission. Mike has the final discretion on this, and accepts schooners as a form of payment for the manual processing. If you fail to submit a "Main" tip, you can do so mid round via email to Mike. However if you do not, then you default to having the home team of the final match of the round as your "main" tip.
 
 Executive Order #2:
 Idol Retention: In the case of holding an idol(s) that is unused, and you lose all your two lives, if you rebuy a third life, your idol stays with you.
-
-What's Public and What's Private
-
-The leaderboard — including everyone's lives and Main Tip submission and results — is visible to anyone with the link, no login needed. Your individual tips (which loser you picked for each match) are private and only visible to Mike.
-
-Mike's Corner
-
-After each round Mike posts his weekly verdict and commentary. Worth a read.
