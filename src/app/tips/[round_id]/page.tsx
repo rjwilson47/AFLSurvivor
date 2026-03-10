@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Team, Match, Round, Tip, MainTip } from '@/lib/types'
 
@@ -378,6 +379,18 @@ export default function TipSubmissionPage({
           </button>
         )}
       </form>
+
+      {/* Idol play link — show when round is locked (tips submitted) */}
+      {isLocked && (
+        <div className="mt-6">
+          <Link
+            href={`/tips/${round_id}/idol`}
+            className="inline-flex items-center rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-100 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300 dark:hover:bg-yellow-900"
+          >
+            ★ Play Idol
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

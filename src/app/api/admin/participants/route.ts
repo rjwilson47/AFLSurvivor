@@ -114,6 +114,20 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // Role update — superadmin only
+  if ('role' in fields) {
+    if (role !== 'superadmin') {
+      return NextResponse.json(
+        { error: 'Only superadmins can change roles' },
+        { status: 403 }
+      )
+    }
+    const validRoles = ['participant', 'admin', 'superadmin']
+    if (!validRoles.includes(fields.role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+    }
+  }
+
   // Generic field update
   if (Object.keys(fields).length > 0) {
     const { error } = await supabase

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
@@ -141,6 +142,28 @@ export default async function MyHistoryPage() {
         </div>
       )}
 
+      {/* Tip submission CTA for open rounds */}
+      {roundList.filter((r) => !r.is_locked).length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            Submit Tips
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {roundList
+              .filter((r) => !r.is_locked)
+              .map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/tips/${r.id}`}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Round {r.round_number}
+                </Link>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Round-by-round history */}
       <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
         Round History
@@ -155,9 +178,10 @@ export default async function MyHistoryPage() {
             roundTips.every((t) => t.is_correct === true)
 
           return (
-            <div
+            <Link
               key={r.id}
-              className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
+              href={`/tips/${r.id}`}
+              className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
             >
               <div>
                 <span className="font-medium text-zinc-900 dark:text-zinc-50">
@@ -194,7 +218,7 @@ export default async function MyHistoryPage() {
                   <span className="text-xs text-zinc-400">Pending</span>
                 )}
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>
