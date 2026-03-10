@@ -24,24 +24,65 @@
 
 ## 1. First-Time Setup (Start of Season)
 
-Before the season begins, you need three things:
+Before the season begins, you need four things:
 
-### A. Create a Season (SQL — one time only)
+### A. Set Up the First Superadmin (SQL — once ever)
 
-This is the **only SQL you need to run all year**. Go to your Supabase Dashboard (supabase.com/dashboard), click **SQL Editor** in the left sidebar, paste this, and click **Run**:
+**This is a chicken-and-egg problem:** the app requires an admin to add participants, but there's no admin yet. You need to create the very first superadmin directly in the Supabase Dashboard.
+
+**Step 1: Create the auth user**
+
+Go to your Supabase Dashboard → **Authentication** (left sidebar) → **Users** tab → click **Add User** → **Create New User**.
+
+- Enter your email address (e.g. mike@example.com)
+- Tick **Auto Confirm User** (so you don't need to verify)
+- Click **Create User**
+
+Note the **User UID** shown in the users table — you'll need it in the next step. It looks like `a1b2c3d4-e5f6-...`.
+
+**Step 2: Create the season and participant record**
+
+Go to **SQL Editor** in the left sidebar, paste this, and click **Run**:
 
 ```sql
+-- Create the first season
 INSERT INTO seasons (year, is_active, entry_cost, extra_life_cost)
 VALUES (2026, true, 50, 25);
+
+-- Create the superadmin participant
+-- Replace the user_id with YOUR User UID from Step 1
+-- Replace the season_id by looking it up (or just use the subquery below)
+INSERT INTO participants (user_id, season_id, display_name, role, lives_total, lives_remaining, idol_count, is_eliminated, is_active)
+VALUES (
+  'PASTE-YOUR-USER-UID-HERE',
+  (SELECT id FROM seasons WHERE is_active = true),
+  'Mike',
+  'superadmin',
+  2,
+  2,
+  0,
+  false,
+  true
+);
 ```
 
-Change `2026` to the current year, and adjust costs if needed. The `is_active = true` flag tells the app which season is current.
+Change `2026` to the current year, `'Mike'` to your display name, and paste your actual User UID from Step 1.
+
+**Step 3: Log in**
+
+Go to the app's login page, enter the same email address, and click to send a magic link. Check your email, click the link, and you're in as superadmin.
+
+**You only need to do this once — ever.** From now on, you can add participants and assign roles from the app.
 
 ### B. Add Participants
 
 Done entirely in the app — no SQL needed. See [Section 2](#2-adding-participants).
 
-### C. Create Round 1
+### C. Make Someone Else Admin (Optional)
+
+If you want another person to be admin, first add them as a participant (Section 2), then change their role (Section 9). You can have multiple admins.
+
+### D. Create Round 1
 
 Done entirely in the app — no SQL needed. See [Section 3](#3-weekly-workflow).
 
@@ -249,11 +290,34 @@ INSERT INTO seasons (year, is_active, entry_cost, extra_life_cost)
 VALUES (2027, true, 50, 25);
 ```
 
-### Step 2: Re-add Participants
+### Step 2: Re-add Yourself as Superadmin (SQL)
 
-Go to `/admin` → **Manage Participants** and add everyone again. Each season has its own participant records, so returning players need to be re-added. They'll use the same email — they don't need a new account, just a new participant entry for the season.
+Because each season has its own participant records, you need to add yourself to the new season. Your auth user already exists from last year, so you just need a new participant row.
 
-### Step 3: Create Round 1
+Go to Supabase Dashboard → SQL Editor → run:
+
+```sql
+INSERT INTO participants (user_id, season_id, display_name, role, lives_total, lives_remaining, idol_count, is_eliminated, is_active)
+VALUES (
+  'PASTE-YOUR-USER-UID-HERE',
+  (SELECT id FROM seasons WHERE is_active = true),
+  'Mike',
+  'superadmin',
+  2,
+  2,
+  0,
+  false,
+  true
+);
+```
+
+To find your User UID: go to **Authentication** → **Users** in the Supabase Dashboard and copy it from the table.
+
+### Step 3: Re-add Participants
+
+Log into the app, go to `/admin` → **Manage Participants** and add everyone again. Each season has its own participant records, so returning players need to be re-added. They'll use the same email — they don't need a new account, just a new participant entry for the season.
+
+### Step 4: Create Round 1
 
 Same as the weekly workflow — go to `/admin` → **New Round**.
 
@@ -265,7 +329,9 @@ Almost never. Here's the complete list:
 
 | Task | SQL needed? |
 |------|-------------|
+| Set up first superadmin | **Yes** — once ever (see Section 1A) |
 | Create a new season | **Yes** — once per year (see Section 10) |
+| Re-add superadmin to new season | **Yes** — once per year (see Section 10) |
 | Add participants | No — use the app |
 | Create rounds | No — use the app |
 | Add matches | No — use the app |
