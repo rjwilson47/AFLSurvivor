@@ -85,6 +85,11 @@ export default async function LeaderboardPage() {
   // Only show rounds that have results and main tips (leaderboard shows main tip data)
   const scoredRounds = roundList.filter((r) => r.results_entered && r.has_main_tip)
 
+  // Find latest round with Mike's Corner content
+  const latestCornerRound = [...roundList]
+    .filter((r) => r.results_entered && r.mikes_corner)
+    .sort((a, b) => b.round_number - a.round_number)[0] ?? null
+
   // Check if logged-in user has untipped open rounds
   const user = await getUser()
   let openRoundToTip: Round | null = null
@@ -269,6 +274,37 @@ export default async function LeaderboardPage() {
         <p className="mt-4 text-zinc-500 dark:text-zinc-400">
           No participants yet.
         </p>
+      )}
+
+      {/* Mike's Corner */}
+      {latestCornerRound && (
+        <div className="mt-8 rounded-lg border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              Mike&apos;s Corner — Round {latestCornerRound.round_number}
+            </h2>
+            <Link
+              href={`/rounds/${latestCornerRound.id}`}
+              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+            >
+              View round &rarr;
+            </Link>
+          </div>
+          <div className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
+            {latestCornerRound.mikes_corner}
+          </div>
+          {latestCornerRound.mikes_corner_posted_at && (
+            <p className="mt-3 text-xs text-zinc-400">
+              Posted{' '}
+              {new Date(latestCornerRound.mikes_corner_posted_at).toLocaleDateString('en-AU', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'Australia/Melbourne',
+              })}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Sponsors footer */}
