@@ -12,10 +12,10 @@ export async function POST(request: Request) {
   const { round_id, tips, main_tip } = body as {
     round_id: string
     tips: { match_id: string; tipped_loser_team_id: string }[]
-    main_tip: { match_id: string; tipped_loser_team_id: string }
+    main_tip: { match_id: string; tipped_loser_team_id: string } | null
   }
 
-  if (!round_id || !tips?.length || !main_tip) {
+  if (!round_id || !tips?.length) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   // Verify round is not locked and deadline hasn't passed
   const { data: round } = await supabase
     .from('rounds')
-    .select('is_locked, season_id, deadline')
+    .select('is_locked, season_id, deadline, has_main_tip')
     .eq('id', round_id)
     .single()
 
@@ -41,45 +41,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Deadline has passed — tips cannot be changed' }, { status: 400 })
   }
 
-  // Validate main tip team matches one of the regular tips
-  const mainTipInTips = tips.some(
-    (t) =>
-      t.match_id === main_tip.match_id &&
-      t.tipped_loser_team_id === main_tip.tipped_loser_team_id
-  )
-  if (!mainTipInTips) {
-    return NextResponse.json(
-      { error: 'Main tip must match one of your regular tips' },
-      { status: 400 }
-    )
-  }
-
-  // Check main tip team usage (max 2 per season)
-  const { data: usage } = await supabase
-    .from('main_tip_team_usage')
-    .select('times_used')
-    .eq('participant_id', participant.id)
-    .eq('season_id', round.season_id)
-    .eq('team_id', main_tip.tipped_loser_team_id)
-    .single()
-
-  // Check if we're changing the main tip team (need to allow re-submitting same team)
-  const { data: existingMainTip } = await supabase
-    .from('main_tips')
-    .select('tipped_loser_team_id')
-    .eq('participant_id', participant.id)
-    .eq('round_id', round_id)
-    .single()
-
-  const isChangingTeam =
-    !existingMainTip ||
-    existingMainTip.tipped_loser_team_id !== main_tip.tipped_loser_team_id
-
-  if (isChangingTeam && usage && usage.times_used >= 2) {
-    return NextResponse.json(
-      { error: 'This team has already been used as main tip twice this season' },
-      { status: 400 }
-    )
+  // Main tip validation (only for rounds that require it)
+  if (round.has_main_tip && !main_tip) {
+    return NextResponse.json({ error: 'Main tip is required for this round' }, { status: 400 })
   }
 
   // Upsert all regular tips
@@ -102,48 +66,92 @@ export async function POST(request: Request) {
     }
   }
 
-  // Upsert main tip
-  const { error: mainError } = await supabase
-    .from('main_tips')
-    .upsert(
-      {
-        participant_id: participant.id,
-        round_id,
-        match_id: main_tip.match_id,
-        tipped_loser_team_id: main_tip.tipped_loser_team_id,
-        submitted_at: new Date().toISOString(),
-      },
-      { onConflict: 'participant_id,round_id' }
+  // Handle main tip (only if provided and round requires it)
+  if (main_tip) {
+    // Validate main tip team matches one of the regular tips
+    const mainTipInTips = tips.some(
+      (t) =>
+        t.match_id === main_tip.match_id &&
+        t.tipped_loser_team_id === main_tip.tipped_loser_team_id
     )
-
-  if (mainError) {
-    return NextResponse.json({ error: mainError.message }, { status: 400 })
-  }
-
-  // Update main tip team usage
-  if (isChangingTeam) {
-    // Decrement old team usage if there was an existing main tip
-    if (existingMainTip) {
-      await supabase
-        .from('main_tip_team_usage')
-        .update({ times_used: Math.max((usage?.times_used ?? 1) - 1, 0) })
-        .eq('participant_id', participant.id)
-        .eq('season_id', round.season_id)
-        .eq('team_id', existingMainTip.tipped_loser_team_id)
+    if (!mainTipInTips) {
+      return NextResponse.json(
+        { error: 'Main tip must match one of your regular tips' },
+        { status: 400 }
+      )
     }
 
-    // Increment new team usage
-    await supabase
+    // Check main tip team usage (max 2 per season)
+    const { data: usage } = await supabase
       .from('main_tip_team_usage')
+      .select('times_used')
+      .eq('participant_id', participant.id)
+      .eq('season_id', round.season_id)
+      .eq('team_id', main_tip.tipped_loser_team_id)
+      .single()
+
+    // Check if we're changing the main tip team (need to allow re-submitting same team)
+    const { data: existingMainTip } = await supabase
+      .from('main_tips')
+      .select('tipped_loser_team_id')
+      .eq('participant_id', participant.id)
+      .eq('round_id', round_id)
+      .single()
+
+    const isChangingTeam =
+      !existingMainTip ||
+      existingMainTip.tipped_loser_team_id !== main_tip.tipped_loser_team_id
+
+    if (isChangingTeam && usage && usage.times_used >= 2) {
+      return NextResponse.json(
+        { error: 'This team has already been used as main tip twice this season' },
+        { status: 400 }
+      )
+    }
+
+    // Upsert main tip
+    const { error: mainError } = await supabase
+      .from('main_tips')
       .upsert(
         {
           participant_id: participant.id,
-          season_id: round.season_id,
-          team_id: main_tip.tipped_loser_team_id,
-          times_used: (usage?.times_used ?? 0) + 1,
+          round_id,
+          match_id: main_tip.match_id,
+          tipped_loser_team_id: main_tip.tipped_loser_team_id,
+          submitted_at: new Date().toISOString(),
         },
-        { onConflict: 'participant_id,season_id,team_id' }
+        { onConflict: 'participant_id,round_id' }
       )
+
+    if (mainError) {
+      return NextResponse.json({ error: mainError.message }, { status: 400 })
+    }
+
+    // Update main tip team usage
+    if (isChangingTeam) {
+      // Decrement old team usage if there was an existing main tip
+      if (existingMainTip) {
+        await supabase
+          .from('main_tip_team_usage')
+          .update({ times_used: Math.max((usage?.times_used ?? 1) - 1, 0) })
+          .eq('participant_id', participant.id)
+          .eq('season_id', round.season_id)
+          .eq('team_id', existingMainTip.tipped_loser_team_id)
+      }
+
+      // Increment new team usage
+      await supabase
+        .from('main_tip_team_usage')
+        .upsert(
+          {
+            participant_id: participant.id,
+            season_id: round.season_id,
+            team_id: main_tip.tipped_loser_team_id,
+            times_used: (usage?.times_used ?? 0) + 1,
+          },
+          { onConflict: 'participant_id,season_id,team_id' }
+        )
+    }
   }
 
   return NextResponse.json({ success: true })

@@ -78,9 +78,13 @@ DECLARE
   v_correct_tips int;
   v_main_tip record;
   v_prev_lives int;
+  v_has_main_tip boolean;
 BEGIN
   -- Mark round as results entered
   UPDATE rounds SET results_entered = true WHERE id = p_round_id;
+
+  -- Check if this round requires a main tip
+  SELECT has_main_tip INTO v_has_main_tip FROM rounds WHERE id = p_round_id;
 
   -- Process each participant who has tips in this round
   FOR v_participant IN
@@ -113,8 +117,10 @@ BEGIN
         AND NOT is_eliminated;
     END IF;
 
-    -- LIFE LOSS: main tip incorrect/draw AND no idol played AND not already eliminated
-    IF v_main_tip.id IS NOT NULL
+    -- LIFE LOSS: only for rounds with main tips
+    -- Main tip incorrect/draw AND no idol played AND not already eliminated
+    IF v_has_main_tip
+       AND v_main_tip.id IS NOT NULL
        AND (v_main_tip.is_correct = false)
        AND NOT v_main_tip.idol_played
        AND NOT v_participant.is_eliminated
@@ -148,10 +154,12 @@ DECLARE
   v_match record;
   v_participant record;
   v_final_match record;
-  v_has_main_tip boolean;
+  v_participant_has_main boolean;
+  v_round_has_main_tip boolean;
 BEGIN
-  -- Get season for this round
-  SELECT season_id INTO v_season_id FROM rounds WHERE id = p_round_id;
+  -- Get season and main tip flag for this round
+  SELECT season_id, has_main_tip INTO v_season_id, v_round_has_main_tip
+  FROM rounds WHERE id = p_round_id;
 
   -- Get the final match for this round (used for default main tip)
   SELECT * INTO v_final_match
@@ -180,14 +188,18 @@ BEGIN
       VALUES (v_participant.participant_id, p_round_id, v_match.match_id, v_match.home_team_id);
     END LOOP;
 
-    -- Step 2: assign default main tip if not submitted
-    SELECT EXISTS (
-      SELECT 1 FROM main_tips
-      WHERE participant_id = v_participant.participant_id
-        AND round_id = p_round_id
-    ) INTO v_has_main_tip;
+    -- Step 2: assign default main tip if not submitted (only for rounds with main tips)
+    IF v_round_has_main_tip THEN
+      SELECT EXISTS (
+        SELECT 1 FROM main_tips
+        WHERE participant_id = v_participant.participant_id
+          AND round_id = p_round_id
+      ) INTO v_participant_has_main;
+    ELSE
+      v_participant_has_main := true;  -- skip main tip assignment
+    END IF;
 
-    IF NOT v_has_main_tip AND v_final_match.id IS NOT NULL THEN
+    IF NOT v_participant_has_main AND v_final_match.id IS NOT NULL THEN
       INSERT INTO main_tips (
         participant_id, round_id, match_id, tipped_loser_team_id, was_default_assigned
       ) VALUES (

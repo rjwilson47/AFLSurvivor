@@ -116,8 +116,8 @@ export default async function RoundSummaryPage({
         </div>
       </div>
 
-      {/* Main tips */}
-      {r.is_locked && (
+      {/* Main tips (only for rounds with main tips) */}
+      {r.is_locked && r.has_main_tip && (
         <div className="mb-8">
           <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             Main Tips

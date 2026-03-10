@@ -114,9 +114,11 @@ export default async function ViewTipsPage({ params }: { params: Promise<{ id: s
                   </th>
                 )
               })}
-              <th className="px-2 py-2 text-center font-medium text-zinc-500 dark:text-zinc-400">
-                Main Tip
-              </th>
+              {round.has_main_tip && (
+                <th className="px-2 py-2 text-center font-medium text-zinc-500 dark:text-zinc-400">
+                  Main Tip
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -192,27 +194,29 @@ export default async function ViewTipsPage({ params }: { params: Promise<{ id: s
                       </td>
                     )
                   })}
-                  <td className="px-2 py-1.5 text-center">
-                    {mainTeam ? (
-                      <span className="font-bold text-blue-700 dark:text-blue-300">
-                        {mainTeam.abbreviation}
-                        {mainTip?.was_default_assigned && (
-                          <span className="ml-0.5 text-[10px] text-zinc-400">(D)</span>
-                        )}
-                        {mainTip?.idol_played && (
-                          <span className="ml-0.5 text-yellow-600">★</span>
-                        )}
-                        {mainTip?.is_correct === true && (
-                          <span className="ml-0.5 text-green-600">✓</span>
-                        )}
-                        {mainTip?.is_correct === false && (
-                          <span className="ml-0.5 text-red-600">✗</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-zinc-300 dark:text-zinc-700">—</span>
-                    )}
-                  </td>
+                  {round.has_main_tip && (
+                    <td className="px-2 py-1.5 text-center">
+                      {mainTeam ? (
+                        <span className="font-bold text-blue-700 dark:text-blue-300">
+                          {mainTeam.abbreviation}
+                          {mainTip?.was_default_assigned && (
+                            <span className="ml-0.5 text-[10px] text-zinc-400">(D)</span>
+                          )}
+                          {mainTip?.idol_played && (
+                            <span className="ml-0.5 text-yellow-600">★</span>
+                          )}
+                          {mainTip?.is_correct === true && (
+                            <span className="ml-0.5 text-green-600">✓</span>
+                          )}
+                          {mainTip?.is_correct === false && (
+                            <span className="ml-0.5 text-red-600">✗</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-300 dark:text-zinc-700">—</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               )
             })}

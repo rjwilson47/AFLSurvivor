@@ -20,6 +20,17 @@ export async function POST(request: Request) {
 
   const supabase = await createClient()
 
+  // Check if round has main tips
+  const { data: round } = await supabase
+    .from('rounds')
+    .select('has_main_tip')
+    .eq('id', round_id)
+    .single()
+
+  if (!round?.has_main_tip) {
+    return NextResponse.json({ error: 'This round has no main tip' }, { status: 400 })
+  }
+
   // Get the main tip for this round
   const { data: mainTip } = await supabase
     .from('main_tips')

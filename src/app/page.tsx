@@ -70,8 +70,8 @@ export default async function LeaderboardPage() {
     mainTipLookup.get(mt.participant_id)!.set(mt.round_id, mt)
   }
 
-  // Only show rounds that have results
-  const scoredRounds = roundList.filter((r) => r.results_entered)
+  // Only show rounds that have results and main tips (leaderboard shows main tip data)
+  const scoredRounds = roundList.filter((r) => r.results_entered && r.has_main_tip)
 
   // Check if logged-in user has untipped open rounds
   const user = await getUser()
