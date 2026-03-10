@@ -56,10 +56,22 @@ export default async function LeaderboardPage() {
   // Load teams
   const { data: teams } = await supabase.from('teams').select('*')
 
+  // Count rebuys (participants who purchased a third life)
+  const { count: rebuyCount } = await supabase
+    .from('participants_public')
+    .select('*', { count: 'exact', head: true })
+    .eq('season_id', season.id)
+    .eq('is_active', true)
+    .eq('is_participating', true)
+    .eq('lives_total', 3)
+
   const teamMap = new Map((teams as Team[])?.map((t) => [t.id, t]) ?? [])
   const roundList = (rounds as Round[]) ?? []
   const participantList = participants ?? []
   const mainTipList = (mainTips as MainTip[]) ?? []
+
+  // Prize pool: $250 per participant + $150 per rebuy
+  const prizePool = participantList.length * 250 + (rebuyCount ?? 0) * 150
 
   // Build lookup: participant_id -> round_id -> main_tip
   const mainTipLookup = new Map<string, Map<string, MainTip>>()
@@ -126,12 +138,22 @@ export default async function LeaderboardPage() {
             Tip the loser. Last one standing wins.
           </p>
         </div>
-        <Link
-          href="/rules"
-          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          Rules
-        </Link>
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-center dark:border-green-800 dark:bg-green-950">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-green-600 dark:text-green-400">
+              Prize Pool
+            </p>
+            <p className="text-lg font-bold text-green-700 dark:text-green-300">
+              ${prizePool.toLocaleString()}
+            </p>
+          </div>
+          <Link
+            href="/rules"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Rules
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
