@@ -48,6 +48,12 @@ export default async function AdminDashboard() {
         </h1>
         <div className="flex gap-3">
           <Link
+            href="/admin/rounds/import"
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            Import Fixture
+          </Link>
+          <Link
             href="/admin/rounds/new"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >

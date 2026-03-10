@@ -34,6 +34,7 @@ export default async function LeaderboardPage() {
     .select('*')
     .eq('season_id', season.id)
     .eq('is_active', true)
+    .eq('is_participating', true)
     .order('lives_remaining', { ascending: false })
 
   // Load rounds

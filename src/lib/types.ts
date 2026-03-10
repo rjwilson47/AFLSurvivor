@@ -29,6 +29,7 @@ export interface Participant {
   idol_count: number
   is_eliminated: boolean
   is_active: boolean
+  is_participating: boolean
   role: ParticipantRole
   joined_at: string
 }
@@ -43,6 +44,7 @@ export interface ParticipantPublic {
   lives_remaining: number
   is_eliminated: boolean
   is_active: boolean
+  is_participating: boolean
   joined_at: string
 }
 
