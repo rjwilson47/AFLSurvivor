@@ -2,45 +2,50 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserRole, hasRole } from '@/lib/auth'
 
-// Team name mapping: fixture feed name → our DB short_name
+// Team name mapping: fixture feed name (lowercase) → our DB short_name
+// All keys are stored lowercase for case-insensitive matching
 const TEAM_NAME_MAP: Record<string, string> = {
-  'Adelaide Crows': 'Adelaide',
-  'Brisbane Lions': 'Brisbane',
-  'Carlton Blues': 'Carlton',
-  'Collingwood Magpies': 'Collingwood',
-  'Essendon Bombers': 'Essendon',
-  'Fremantle Dockers': 'Fremantle',
-  'Geelong Cats': 'Geelong',
-  'Gold Coast Suns': 'Gold Coast',
-  'GWS Giants': 'GWS',
-  'Greater Western Sydney Giants': 'GWS',
-  'Hawthorn Hawks': 'Hawthorn',
-  'Melbourne Demons': 'Melbourne',
-  'North Melbourne Kangaroos': 'North Melbourne',
-  'Port Adelaide Power': 'Port Adelaide',
-  'Richmond Tigers': 'Richmond',
-  'St Kilda Saints': 'St Kilda',
-  'Sydney Swans': 'Sydney',
-  'West Coast Eagles': 'West Coast',
-  'Western Bulldogs': 'Western Bulldogs',
-  // Also handle short names directly
-  'Adelaide': 'Adelaide',
-  'Brisbane': 'Brisbane',
-  'Carlton': 'Carlton',
-  'Collingwood': 'Collingwood',
-  'Essendon': 'Essendon',
-  'Fremantle': 'Fremantle',
-  'Geelong': 'Geelong',
-  'Gold Coast': 'Gold Coast',
-  'GWS': 'GWS',
-  'Hawthorn': 'Hawthorn',
-  'Melbourne': 'Melbourne',
-  'North Melbourne': 'North Melbourne',
-  'Port Adelaide': 'Port Adelaide',
-  'Richmond': 'Richmond',
-  'St Kilda': 'St Kilda',
-  'Sydney': 'Sydney',
-  'West Coast': 'West Coast',
+  'adelaide crows': 'Adelaide',
+  'brisbane lions': 'Brisbane',
+  'carlton blues': 'Carlton',
+  'collingwood magpies': 'Collingwood',
+  'essendon bombers': 'Essendon',
+  'fremantle dockers': 'Fremantle',
+  'geelong cats': 'Geelong',
+  'gold coast suns': 'Gold Coast',
+  'gws giants': 'GWS',
+  'greater western sydney giants': 'GWS',
+  'hawthorn hawks': 'Hawthorn',
+  'melbourne demons': 'Melbourne',
+  'north melbourne kangaroos': 'North Melbourne',
+  'port adelaide power': 'Port Adelaide',
+  'richmond tigers': 'Richmond',
+  'st kilda saints': 'St Kilda',
+  'sydney swans': 'Sydney',
+  'west coast eagles': 'West Coast',
+  'western bulldogs': 'Western Bulldogs',
+  // Short names
+  'adelaide': 'Adelaide',
+  'brisbane': 'Brisbane',
+  'carlton': 'Carlton',
+  'collingwood': 'Collingwood',
+  'essendon': 'Essendon',
+  'fremantle': 'Fremantle',
+  'geelong': 'Geelong',
+  'gold coast': 'Gold Coast',
+  'gws': 'GWS',
+  'hawthorn': 'Hawthorn',
+  'melbourne': 'Melbourne',
+  'north melbourne': 'North Melbourne',
+  'port adelaide': 'Port Adelaide',
+  'richmond': 'Richmond',
+  'st kilda': 'St Kilda',
+  'sydney': 'Sydney',
+  'west coast': 'West Coast',
+}
+
+function lookupTeamName(fixtureName: string): string | undefined {
+  return TEAM_NAME_MAP[fixtureName.toLowerCase()]
 }
 
 interface FixtureMatch {
@@ -106,7 +111,7 @@ export async function GET(request: Request) {
       allTeamNames.add(match.HomeTeam)
       allTeamNames.add(match.AwayTeam)
     }
-    const unmappedTeams = Array.from(allTeamNames).filter((t) => !TEAM_NAME_MAP[t])
+    const unmappedTeams = Array.from(allTeamNames).filter((t) => !lookupTeamName(t))
 
     return NextResponse.json({ rounds, unmappedTeams })
   } catch (err) {
@@ -157,7 +162,7 @@ export async function POST(request: Request) {
   const teamByShortName = new Map(teams.map((t) => [t.short_name, t.id]))
 
   function resolveTeamId(fixtureName: string): string | null {
-    const shortName = TEAM_NAME_MAP[fixtureName]
+    const shortName = lookupTeamName(fixtureName)
     if (!shortName) return null
     return teamByShortName.get(shortName) ?? null
   }
