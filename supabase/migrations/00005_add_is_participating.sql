@@ -4,8 +4,10 @@
 ALTER TABLE participants
 ADD COLUMN is_participating boolean NOT NULL DEFAULT true;
 
--- Update the participants_public view to include is_participating
-CREATE OR REPLACE VIEW participants_public AS
+-- Must drop and recreate the view since we're adding a column
+DROP VIEW IF EXISTS participants_public;
+
+CREATE VIEW participants_public AS
 SELECT
   id,
   user_id,
