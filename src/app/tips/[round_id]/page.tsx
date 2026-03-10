@@ -125,7 +125,8 @@ export default function TipSubmissionPage({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!participantId || !mainMatchId) return
+    if (!participantId) return
+    if (round?.has_main_tip && !mainMatchId) return
     setError('')
     setSaving(true)
     setSaved(false)
@@ -137,11 +138,18 @@ export default function TipSubmissionPage({
       })
     )
 
-    const mainTipTeamId = tipSelections[mainMatchId]
-    if (!mainTipTeamId) {
-      setError('Please select a tip for your main match first')
-      setSaving(false)
-      return
+    let mainTipPayload: { match_id: string; tipped_loser_team_id: string } | null = null
+    if (round?.has_main_tip && mainMatchId) {
+      const mainTipTeamId = tipSelections[mainMatchId]
+      if (!mainTipTeamId) {
+        setError('Please select a tip for your main match first')
+        setSaving(false)
+        return
+      }
+      mainTipPayload = {
+        match_id: mainMatchId,
+        tipped_loser_team_id: mainTipTeamId,
+      }
     }
 
     const res = await fetch('/api/tips', {
@@ -150,10 +158,7 @@ export default function TipSubmissionPage({
       body: JSON.stringify({
         round_id,
         tips,
-        main_tip: {
-          match_id: mainMatchId,
-          tipped_loser_team_id: mainTipTeamId,
-        },
+        main_tip: mainTipPayload,
       }),
     })
 
@@ -301,8 +306,8 @@ export default function TipSubmissionPage({
           })}
         </div>
 
-        {/* Step 2: Select main tip */}
-        {allMatchesTipped && (
+        {/* Step 2: Select main tip (only for rounds with main tips) */}
+        {round?.has_main_tip && allMatchesTipped && (
           <div className="mb-8">
             <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
               Select your main tip
@@ -372,7 +377,7 @@ export default function TipSubmissionPage({
         {!isLocked && (
           <button
             type="submit"
-            disabled={saving || !allMatchesTipped || !mainMatchId}
+            disabled={saving || !allMatchesTipped || (round?.has_main_tip && !mainMatchId)}
             className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
           >
             {saving ? 'Submitting...' : saved ? 'Update Tips' : 'Submit Tips'}
@@ -380,8 +385,8 @@ export default function TipSubmissionPage({
         )}
       </form>
 
-      {/* Idol play link — show when round is locked (tips submitted) */}
-      {isLocked && (
+      {/* Idol play link — show when round is locked and has main tip */}
+      {isLocked && round?.has_main_tip && (
         <div className="mt-6">
           <Link
             href={`/tips/${round_id}/idol`}

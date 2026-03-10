@@ -268,13 +268,14 @@ export async function POST(request: Request) {
       is_final_match: i === resolvedMatches.length - 1,
     }))
 
-    // Create round
+    // Create round (Round 0 has no main tip)
     const { data: round, error: roundError } = await supabase
       .from('rounds')
       .insert({
         round_number: roundNumber,
         deadline: deadlineIso,
         season_id: seasonId,
+        has_main_tip: roundNumber !== 0,
       })
       .select()
       .single()

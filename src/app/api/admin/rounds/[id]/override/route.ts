@@ -67,6 +67,22 @@ export async function PUT(
     }
   }
 
+  // Block main_tip override for rounds without main tips
+  if (type === 'main_tip') {
+    const { data: roundData } = await admin
+      .from('rounds')
+      .select('has_main_tip')
+      .eq('id', roundId)
+      .single()
+
+    if (!roundData?.has_main_tip) {
+      return NextResponse.json(
+        { error: 'This round does not have a main tip' },
+        { status: 400 }
+      )
+    }
+  }
+
   // Validate match belongs to this round
   const { data: matchInRound } = await admin
     .from('matches')

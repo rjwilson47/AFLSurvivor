@@ -27,6 +27,7 @@ export default function NewRoundPage() {
   const [season, setSeason] = useState<Season | null>(null)
   const [roundNumber, setRoundNumber] = useState(1)
   const [deadline, setDeadline] = useState('')
+  const [hasMainTip, setHasMainTip] = useState(true)
   const [matches, setMatches] = useState<MatchForm[]>([emptyMatch()])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -87,7 +88,7 @@ export default function NewRoundPage() {
       }
     }
 
-    if (!matches.some((m) => m.is_final_match)) {
+    if (hasMainTip && !matches.some((m) => m.is_final_match)) {
       setError('One match must be marked as the final match of the round')
       setSaving(false)
       return
@@ -100,6 +101,7 @@ export default function NewRoundPage() {
         round_number: roundNumber,
         deadline,
         season_id: season.id,
+        has_main_tip: hasMainTip,
         matches,
       }),
     })
@@ -152,6 +154,21 @@ export default function NewRoundPage() {
             </p>
           </div>
         </div>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={hasMainTip}
+            onChange={(e) => setHasMainTip(e.target.checked)}
+            className="rounded"
+          />
+          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Require main tip for this round
+          </span>
+          {!hasMainTip && (
+            <span className="text-xs text-zinc-400">(no life risk, tips only)</span>
+          )}
+        </label>
 
         <div>
           <div className="mb-3 flex items-center justify-between">

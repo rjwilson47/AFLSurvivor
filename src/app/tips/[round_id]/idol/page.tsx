@@ -43,11 +43,17 @@ export default function PlayIdolPage({
 
       const { data: round } = await supabase
         .from('rounds')
-        .select('round_number')
+        .select('round_number, has_main_tip')
         .eq('id', round_id)
         .single()
 
       if (round) setRoundNumber(round.round_number)
+
+      // No idol play for rounds without main tips
+      if (!round?.has_main_tip) {
+        setLoading(false)
+        return
+      }
 
       const { data: mainTip } = await supabase
         .from('main_tips')
@@ -126,6 +132,12 @@ export default function PlayIdolPage({
       <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
         Play Idol — Round {roundNumber}
       </h1>
+
+      {!mainTipTeam && !alreadyPlayed && !canPlay && (
+        <div className="mb-6 rounded-lg border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          This round has no main tip — idols cannot be played.
+        </div>
+      )}
 
       <div className="mb-6 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
         <p className="text-sm text-zinc-500 dark:text-zinc-400">Your idols</p>

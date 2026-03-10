@@ -55,6 +55,7 @@ export interface Round {
   deadline: string
   is_locked: boolean
   results_entered: boolean
+  has_main_tip: boolean
   mikes_corner: string | null
   mikes_corner_posted_at: string | null
   created_at: string

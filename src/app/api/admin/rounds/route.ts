@@ -9,10 +9,11 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { round_number, deadline, season_id, matches } = body as {
+  const { round_number, deadline, season_id, has_main_tip, matches } = body as {
     round_number: number
     deadline: string
     season_id: string
+    has_main_tip?: boolean
     matches: {
       home_team_id: string
       away_team_id: string
@@ -26,13 +27,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Validate exactly one final match
-  const finalCount = matches.filter((m) => m.is_final_match).length
-  if (finalCount !== 1) {
-    return NextResponse.json(
-      { error: 'Exactly one match must be marked as the final match' },
-      { status: 400 }
-    )
+  const roundHasMainTip = has_main_tip !== false
+
+  // Validate exactly one final match (only required when round has main tips)
+  if (roundHasMainTip) {
+    const finalCount = matches.filter((m) => m.is_final_match).length
+    if (finalCount !== 1) {
+      return NextResponse.json(
+        { error: 'Exactly one match must be marked as the final match' },
+        { status: 400 }
+      )
+    }
   }
 
   const supabase = await createClient()
@@ -40,7 +45,7 @@ export async function POST(request: Request) {
   // Create the round
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .insert({ round_number, deadline, season_id })
+    .insert({ round_number, deadline, season_id, has_main_tip: roundHasMainTip })
     .select()
     .single()
 
@@ -78,11 +83,12 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json()
-  const { id, round_number, deadline, is_locked, matches } = body as {
+  const { id, round_number, deadline, is_locked, has_main_tip, matches } = body as {
     id: string
     round_number?: number
     deadline?: string
     is_locked?: boolean
+    has_main_tip?: boolean
     matches?: {
       id?: string
       home_team_id: string
@@ -100,6 +106,7 @@ export async function PUT(request: Request) {
   if (round_number !== undefined) updates.round_number = round_number
   if (deadline !== undefined) updates.deadline = deadline
   if (is_locked !== undefined) updates.is_locked = is_locked
+  if (has_main_tip !== undefined) updates.has_main_tip = has_main_tip
 
   if (Object.keys(updates).length > 0) {
     const { error } = await supabase
@@ -114,12 +121,23 @@ export async function PUT(request: Request) {
 
   // If matches are provided, replace them
   if (matches) {
-    const finalCount = matches.filter((m) => m.is_final_match).length
-    if (finalCount !== 1) {
-      return NextResponse.json(
-        { error: 'Exactly one match must be marked as the final match' },
-        { status: 400 }
-      )
+    // Final match validation only needed when round has main tips
+    // Fetch current has_main_tip if not provided in this update
+    const effectiveHasMainTip = has_main_tip ?? (await supabase
+      .from('rounds')
+      .select('has_main_tip')
+      .eq('id', id)
+      .single()
+    ).data?.has_main_tip ?? true
+
+    if (effectiveHasMainTip) {
+      const finalCount = matches.filter((m) => m.is_final_match).length
+      if (finalCount !== 1) {
+        return NextResponse.json(
+          { error: 'Exactly one match must be marked as the final match' },
+          { status: 400 }
+        )
+      }
     }
 
     // Delete existing matches and re-insert

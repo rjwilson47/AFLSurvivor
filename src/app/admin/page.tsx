@@ -109,6 +109,9 @@ export default async function AdminDashboard() {
                     <tr key={round.id} className="border-b border-zinc-100 dark:border-zinc-800/50">
                       <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-50">
                         Round {round.round_number}
+                        {!round.has_main_tip && (
+                          <span className="ml-2 text-[10px] text-zinc-400">(No Main)</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
                         {new Date(round.deadline).toLocaleDateString('en-AU', {
