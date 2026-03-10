@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Team, Participant, Match, Tip, MainTip } from '@/lib/types'
 import Link from 'next/link'
+import { OverrideButton } from '@/components/override-button'
 
 export default async function ViewTipsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: roundId } = await params
@@ -63,6 +64,10 @@ export default async function ViewTipsPage({ params }: { params: Promise<{ id: s
   }
 
   const tippedCount = participantList.filter((p) => tipLookup.has(p.id)).length
+
+  // Serialize for client-side override component
+  const matchesJson = JSON.stringify(matchList)
+  const teamsJson = JSON.stringify(teams ?? [])
 
   return (
     <div className="mx-auto max-w-[90rem] px-4 py-8">
@@ -128,10 +133,21 @@ export default async function ViewTipsPage({ params }: { params: Promise<{ id: s
                   className="border-b border-zinc-100 dark:border-zinc-800/50"
                 >
                   <td className="sticky left-0 bg-white px-2 py-1.5 font-medium text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
-                    {p.display_name}
-                    {p.is_eliminated && (
-                      <span className="ml-1 text-[10px] text-red-500">OUT</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <span>
+                        {p.display_name}
+                        {p.is_eliminated && (
+                          <span className="ml-1 text-[10px] text-red-500">OUT</span>
+                        )}
+                      </span>
+                      <OverrideButton
+                        roundId={roundId}
+                        participantId={p.id}
+                        participantName={p.display_name}
+                        matchesJson={matchesJson}
+                        teamsJson={teamsJson}
+                      />
+                    </div>
                   </td>
                   {matchList.map((m) => {
                     const tip = pTips?.get(m.id)

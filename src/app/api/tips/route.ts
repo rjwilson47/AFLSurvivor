@@ -21,10 +21,10 @@ export async function POST(request: Request) {
 
   const supabase = await createClient()
 
-  // Verify round is not locked
+  // Verify round is not locked and deadline hasn't passed
   const { data: round } = await supabase
     .from('rounds')
-    .select('is_locked, season_id')
+    .select('is_locked, season_id, deadline')
     .eq('id', round_id)
     .single()
 
@@ -34,6 +34,11 @@ export async function POST(request: Request) {
 
   if (round.is_locked) {
     return NextResponse.json({ error: 'Round is locked — tips cannot be changed' }, { status: 400 })
+  }
+
+  // Server-side deadline enforcement (backup even if round isn't locked yet)
+  if (new Date() >= new Date(round.deadline)) {
+    return NextResponse.json({ error: 'Deadline has passed — tips cannot be changed' }, { status: 400 })
   }
 
   // Validate main tip team matches one of the regular tips

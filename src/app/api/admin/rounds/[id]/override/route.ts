@@ -49,7 +49,6 @@ export async function PUT(
       .single()
 
     if (round) {
-      // Find the latest round number
       const { data: latestRound } = await supabase
         .from('rounds')
         .select('round_number')
@@ -66,6 +65,18 @@ export async function PUT(
         )
       }
     }
+  }
+
+  // Validate match belongs to this round
+  const { data: matchInRound } = await admin
+    .from('matches')
+    .select('id, result')
+    .eq('id', match_id)
+    .eq('round_id', roundId)
+    .single()
+
+  if (!matchInRound) {
+    return NextResponse.json({ error: 'Match not found in this round' }, { status: 404 })
   }
 
   if (type === 'tip') {
@@ -88,17 +99,27 @@ export async function PUT(
     }
 
     // Re-score if match has a result
-    const { data: match } = await admin
-      .from('matches')
-      .select('result')
-      .eq('id', match_id)
-      .single()
-
-    if (match && match.result !== 'pending') {
+    if (matchInRound.result !== 'pending') {
       await admin.rpc('score_match_tips', { p_match_id: match_id })
     }
   } else {
     // Override main tip
+    // Validate that a matching regular tip exists for this participant/match/team
+    const { data: regularTip } = await admin
+      .from('tips')
+      .select('id')
+      .eq('participant_id', participant_id)
+      .eq('match_id', match_id)
+      .eq('tipped_loser_team_id', tipped_loser_team_id)
+      .single()
+
+    if (!regularTip) {
+      return NextResponse.json(
+        { error: 'Main tip must match one of the participant\'s regular tips for this match' },
+        { status: 400 }
+      )
+    }
+
     // Get existing main tip to handle team usage update
     const { data: existingMain } = await admin
       .from('main_tips')
@@ -131,31 +152,38 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // Update team usage if team changed
-    if (
-      round &&
-      existingMain &&
-      existingMain.tipped_loser_team_id !== tipped_loser_team_id
-    ) {
-      // Decrement old
-      const { data: oldUsage } = await admin
-        .from('main_tip_team_usage')
-        .select('times_used')
+    // Update team usage by recounting from main_tips (simple and correct)
+    const teamChanged = existingMain && existingMain.tipped_loser_team_id !== tipped_loser_team_id
+
+    if (round && teamChanged) {
+      // Recount old team usage
+      const { count: oldCount } = await admin
+        .from('main_tips')
+        .select('*', { count: 'exact', head: true })
         .eq('participant_id', participant_id)
-        .eq('season_id', round.season_id)
-        .eq('team_id', existingMain.tipped_loser_team_id)
-        .single()
+        .eq('tipped_loser_team_id', existingMain.tipped_loser_team_id)
 
-      if (oldUsage) {
-        await admin
-          .from('main_tip_team_usage')
-          .update({ times_used: Math.max(oldUsage.times_used - 1, 0) })
-          .eq('participant_id', participant_id)
-          .eq('season_id', round.season_id)
-          .eq('team_id', existingMain.tipped_loser_team_id)
-      }
+      await admin
+        .from('main_tip_team_usage')
+        .upsert(
+          {
+            participant_id,
+            season_id: round.season_id,
+            team_id: existingMain.tipped_loser_team_id,
+            times_used: oldCount ?? 0,
+          },
+          { onConflict: 'participant_id,season_id,team_id' }
+        )
+    }
 
-      // Increment new
+    if (round && (teamChanged || !existingMain)) {
+      // Recount new team usage
+      const { count: newCount } = await admin
+        .from('main_tips')
+        .select('*', { count: 'exact', head: true })
+        .eq('participant_id', participant_id)
+        .eq('tipped_loser_team_id', tipped_loser_team_id)
+
       await admin
         .from('main_tip_team_usage')
         .upsert(
@@ -163,46 +191,14 @@ export async function PUT(
             participant_id,
             season_id: round.season_id,
             team_id: tipped_loser_team_id,
-            times_used: 1,
+            times_used: newCount ?? 1,
           },
           { onConflict: 'participant_id,season_id,team_id' }
         )
-        .select()
-      // If it already existed, we need to increment instead
-      const { data: newUsage } = await admin
-        .from('main_tip_team_usage')
-        .select('times_used')
-        .eq('participant_id', participant_id)
-        .eq('season_id', round.season_id)
-        .eq('team_id', tipped_loser_team_id)
-        .single()
-
-      if (newUsage && existingMain) {
-        // The upsert may have set it to 1, but if it existed before we need to increment
-        // Re-count from main_tips to be safe
-        const { count } = await admin
-          .from('main_tips')
-          .select('*', { count: 'exact', head: true })
-          .eq('participant_id', participant_id)
-          .eq('tipped_loser_team_id', tipped_loser_team_id)
-
-        await admin
-          .from('main_tip_team_usage')
-          .update({ times_used: count ?? 1 })
-          .eq('participant_id', participant_id)
-          .eq('season_id', round.season_id)
-          .eq('team_id', tipped_loser_team_id)
-      }
     }
 
     // Re-score if match has a result
-    const { data: match } = await admin
-      .from('matches')
-      .select('result')
-      .eq('id', match_id)
-      .single()
-
-    if (match && match.result !== 'pending') {
+    if (matchInRound.result !== 'pending') {
       await admin.rpc('score_match_tips', { p_match_id: match_id })
     }
   }

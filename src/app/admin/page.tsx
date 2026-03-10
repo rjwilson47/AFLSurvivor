@@ -25,6 +25,21 @@ export default async function AdminDashboard() {
     .eq('season_id', season?.id ?? '')
     .eq('is_active', true)
 
+  // Get tip submission counts per round (distinct participants who have tipped)
+  const roundIds = rounds?.map((r: { id: string }) => r.id) ?? []
+  const { data: tipCounts } = roundIds.length
+    ? await supabase
+        .from('main_tips')
+        .select('round_id')
+        .in('round_id', roundIds)
+    : { data: [] }
+
+  // Count main_tips per round (one main_tip = one participant has submitted)
+  const tipCountByRound = new Map<string, number>()
+  for (const tc of tipCounts ?? []) {
+    tipCountByRound.set(tc.round_id, (tipCountByRound.get(tc.round_id) ?? 0) + 1)
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
@@ -78,6 +93,7 @@ export default async function AdminDashboard() {
                   <tr className="border-b border-zinc-200 dark:border-zinc-800">
                     <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Round</th>
                     <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Deadline</th>
+                    <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Tipped</th>
                     <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Status</th>
                     <th className="px-3 py-2 font-medium text-zinc-500 dark:text-zinc-400">Actions</th>
                   </tr>
@@ -97,6 +113,9 @@ export default async function AdminDashboard() {
                           minute: '2-digit',
                           timeZone: 'Australia/Melbourne',
                         })}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                        {tipCountByRound.get(round.id) ?? 0}/{participantCount ?? 0}
                       </td>
                       <td className="px-3 py-2">
                         {round.results_entered ? (

@@ -114,25 +114,38 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // Role update — superadmin only
-  if ('role' in fields) {
-    if (role !== 'superadmin') {
+  // Whitelist allowed fields to prevent arbitrary updates
+  const allowedFields: Record<string, string[]> = {
+    admin: ['display_name'],
+    superadmin: ['display_name', 'role'],
+  }
+
+  const permitted = allowedFields[role ?? ''] ?? []
+  const sanitized: Record<string, unknown> = {}
+
+  for (const key of Object.keys(fields)) {
+    if (!permitted.includes(key)) {
       return NextResponse.json(
-        { error: 'Only superadmins can change roles' },
-        { status: 403 }
+        { error: `Field '${key}' cannot be updated directly. Use a specific action instead.` },
+        { status: 400 }
       )
     }
+    sanitized[key] = fields[key]
+  }
+
+  // Role validation
+  if ('role' in sanitized) {
     const validRoles = ['participant', 'admin', 'superadmin']
-    if (!validRoles.includes(fields.role)) {
+    if (!validRoles.includes(sanitized.role as string)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
   }
 
-  // Generic field update
-  if (Object.keys(fields).length > 0) {
+  // Apply whitelisted field updates
+  if (Object.keys(sanitized).length > 0) {
     const { error } = await supabase
       .from('participants')
-      .update(fields)
+      .update(sanitized)
       .eq('id', id)
 
     if (error) {

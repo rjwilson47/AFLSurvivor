@@ -29,6 +29,8 @@ BEGIN
     -- If result cleared back to pending, null out scores for this match
     UPDATE tips SET is_correct = NULL WHERE match_id = p_match_id;
     UPDATE main_tips SET is_correct = NULL WHERE match_id = p_match_id;
+    -- Reset results_entered since not all matches have results anymore
+    UPDATE rounds SET results_entered = false WHERE id = v_round_id;
   ELSIF v_result = 'draw' THEN
     -- Draw: no loser, so all tips are incorrect
     UPDATE tips SET is_correct = false WHERE match_id = p_match_id;

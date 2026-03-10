@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/auth'
 import type { Team, MainTip, Round } from '@/lib/types'
 
 export const revalidate = 60 // revalidate every 60 seconds
@@ -71,8 +72,50 @@ export default async function LeaderboardPage() {
   // Only show rounds that have results
   const scoredRounds = roundList.filter((r) => r.results_entered)
 
+  // Check if logged-in user has untipped open rounds
+  const user = await getUser()
+  let openRoundToTip: Round | null = null
+
+  if (user) {
+    const { data: participant } = await supabase
+      .from('participants')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .limit(1)
+      .single()
+
+    if (participant) {
+      const openRounds = roundList.filter((r) => !r.is_locked && new Date(r.deadline) > new Date())
+      for (const r of openRounds) {
+        const { data: existingMain } = await supabase
+          .from('main_tips')
+          .select('id')
+          .eq('participant_id', participant.id)
+          .eq('round_id', r.id)
+          .single()
+
+        if (!existingMain) {
+          openRoundToTip = r
+          break
+        }
+      }
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      {openRoundToTip && (
+        <Link
+          href={`/tips/${openRoundToTip.id}`}
+          className="mb-6 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900"
+        >
+          <span>
+            Round {openRoundToTip.round_number} is open — submit your tips before the deadline!
+          </span>
+          <span className="font-medium">Tip now &rarr;</span>
+        </Link>
+      )}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
