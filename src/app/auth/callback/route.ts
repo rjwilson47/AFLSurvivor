@@ -12,6 +12,9 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
     }
+    console.error('Auth callback: code exchange failed', { error: error.message, code: error.code, status: error.status })
+  } else {
+    console.error('Auth callback: no code parameter in URL', { params: Object.fromEntries(searchParams) })
   }
 
   // If no code or exchange failed, redirect to login with error
