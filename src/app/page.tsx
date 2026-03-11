@@ -152,14 +152,14 @@ export default async function LeaderboardPage() {
               ${prizePool.toLocaleString()}
             </p>
           </div>
-          <Link
-            href="/rules"
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Rules
-          </Link>
         </div>
       </div>
+
+      <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+        Timing note: All tips for each round will close at 5pm on the Thursday before the round. In the case of tips not submitted here, per Mike Lee&apos;s Executive Orders, you can submit after 5pm or during the round via email and still hunt for an idol, assuming all the home teams have lost up until point of submission. Mike has the final discretion on this, and accepts schooners as a form of payment for the manual processing. See the{' '}
+        <Link href="/rules" className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200">Rules</Link>
+        {' '}page for more Executive Orders information.
+      </p>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
