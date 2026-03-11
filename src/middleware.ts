@@ -10,6 +10,14 @@ const protectedRoutes = ['/tips', '/me', '/admin']
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
 
+  // If a magic link lands on the root with a code param (Supabase fallback),
+  // forward it to /auth/callback so the code exchange can happen.
+  if (pathname === '/' && searchParams.has('code')) {
+    const callbackUrl = new URL('/auth/callback', request.url)
+    callbackUrl.searchParams.set('code', searchParams.get('code')!)
+    return NextResponse.redirect(callbackUrl)
+  }
+
   // Supabase redirects expired/invalid magic links to the site URL with error params.
   // Catch these and redirect to /login with a user-friendly message.
   if (searchParams.get('error_code') === 'otp_expired') {
